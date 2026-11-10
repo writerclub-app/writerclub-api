@@ -1,6 +1,6 @@
 /// <reference path="../../worker-configuration.d.ts" />
 import { Hono } from 'hono'
-import { authMiddleware } from '../middleware/auth'
+import { authMiddleware, verifyToken } from '../middleware/auth'
 
 type Bindings = { DB: D1Database; JWT_SECRET: string }
 type Variables = { authId: string }
@@ -104,10 +104,9 @@ profiles.post('/', authMiddleware, async (c) => {
     `INSERT INTO profiles (auth_id, username, display_name, bio, avatar_url)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(auth_id) DO UPDATE SET
-       username     = excluded.username,
-       display_name = excluded.display_name,
-       bio          = excluded.bio,
-       avatar_url   = excluded.avatar_url,
+       username     = COALESCE(profiles.username, excluded.username),
+       display_name = COALESCE(excluded.display_name, profiles.display_name),
+       avatar_url   = COALESCE(excluded.avatar_url, profiles.avatar_url),
        updated_at   = datetime('now')`
   ).bind(
     authId,
@@ -126,6 +125,7 @@ profiles.post('/', authMiddleware, async (c) => {
 })
 
 // GET /profiles/:username — perfil público (MUST be after /me)
+// Accepts optional Authorization header to resolve isFollowing
 profiles.get('/:username', async (c) => {
   const { username } = c.req.param()
 
@@ -143,13 +143,37 @@ profiles.get('/:username', async (c) => {
   const limit = 20
   const offset = (page - 1) * limit
 
-  const writings = await c.env.DB.prepare(
-    `SELECT id, local_id, title, slug, excerpt, category_name, published_at
-     FROM writings
-     WHERE author_id = ? AND is_public = 1
-     ORDER BY published_at DESC
-     LIMIT ? OFFSET ?`
-  ).bind(profile.auth_id, limit, offset).all()
+  // Contagens de follows
+  const [followersRow, followingRow, writingsResult] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM follows WHERE following_id = ?`
+    ).bind(profile.auth_id).first<{ count: number }>(),
+    c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM follows WHERE follower_id = ?`
+    ).bind(profile.auth_id).first<{ count: number }>(),
+    c.env.DB.prepare(
+      `SELECT id, local_id, title, slug, excerpt, category_name, published_at
+       FROM writings
+       WHERE author_id = ? AND is_public = 1
+       ORDER BY published_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(profile.auth_id, limit, offset).all(),
+  ])
+
+  // isFollowing: resolve se houver token válido no header
+  let isFollowing = false
+  const authHeader = c.req.header('Authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const payload = await verifyToken(authHeader.slice(7), c.env.JWT_SECRET)
+      if (payload?.authId && payload.authId !== profile.auth_id) {
+        const row = await c.env.DB.prepare(
+          `SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?`
+        ).bind(payload.authId, profile.auth_id).first()
+        isFollowing = row !== null
+      }
+    } catch { /* token inválido — ignora */ }
+  }
 
   return c.json({
     profile: {
@@ -158,8 +182,11 @@ profiles.get('/:username', async (c) => {
       bio: profile.bio,
       avatarUrl: profile.avatar_url,
       createdAt: profile.created_at,
+      followerCount: followersRow?.count ?? 0,
+      followingCount: followingRow?.count ?? 0,
+      isFollowing,
     },
-    writings: writings.results,
+    writings: writingsResult.results,
     page,
     limit,
   })

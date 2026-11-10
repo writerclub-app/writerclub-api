@@ -24,3 +24,17 @@ export const authMiddleware = createMiddleware<{
     return c.json({ error: 'Invalid token' }, 401)
   }
 })
+
+/** Verifica um JWT e retorna o payload, ou null se inválido. */
+export async function verifyToken(
+  token: string,
+  secret: string
+): Promise<{ authId: string } | null> {
+  try {
+    const payload = await verify(token, secret, 'HS256')
+    if (!payload.sub) return null
+    return { authId: payload.sub as string }
+  } catch {
+    return null
+  }
+}

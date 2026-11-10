@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 import { writings } from './routes/writings'
 import { auth } from './routes/auth'
 import { profiles } from './routes/profiles'
+import { follows } from './routes/follows'
 
 type Bindings = { DB: D1Database; JWT_SECRET: string }
 
@@ -20,5 +21,6 @@ app.get('/', (c) => c.json({ ok: true, service: 'writerclub-api' }))
 app.route('/writings', writings)
 app.route('/auth', auth)
 app.route('/profiles', profiles)
+app.route('/follows', follows)
 
 export default app

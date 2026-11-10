@@ -28,3 +28,15 @@ CREATE TABLE IF NOT EXISTS writings (
 
 CREATE INDEX IF NOT EXISTS idx_writings_published ON writings(published_at DESC) WHERE is_public = 1;
 CREATE INDEX IF NOT EXISTS idx_writings_author ON writings(author_id);
+
+-- Follows (relação follower → following)
+CREATE TABLE IF NOT EXISTS follows (
+  follower_id  TEXT NOT NULL REFERENCES profiles(auth_id) ON DELETE CASCADE,
+  following_id TEXT NOT NULL REFERENCES profiles(auth_id) ON DELETE CASCADE,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (follower_id, following_id),
+  CHECK (follower_id != following_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
+CREATE INDEX IF NOT EXISTS idx_follows_follower  ON follows(follower_id);
