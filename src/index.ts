@@ -1,6 +1,7 @@
 /// <reference path="../worker-configuration.d.ts" />
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { likes } from './routes/likes'
 import { writings } from './routes/writings'
 import { auth } from './routes/auth'
 import { profiles } from './routes/profiles'
@@ -22,5 +23,6 @@ app.route('/writings', writings)
 app.route('/auth', auth)
 app.route('/profiles', profiles)
 app.route('/follows', follows)
+app.route('/likes', likes)
 
 export default app

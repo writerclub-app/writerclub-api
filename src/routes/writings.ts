@@ -26,6 +26,30 @@ writings.get('/', async (c) => {
   return c.json({ data: results, page, limit })
 })
 
+
+// GET /writings/feed — writings de quem o usuário segue (autenticado)
+writings.get('/feed', authMiddleware, async (c) => {
+  const authId = c.get('authId')
+  const page = Number(c.req.query('page') ?? 1)
+  const limit = 20
+  const offset = (page - 1) * limit
+
+  const { results } = await c.env.DB.prepare(`
+    SELECT w.id, w.title, w.slug, w.excerpt, w.category_name,
+           w.published_at, w.author_id, p.username, p.display_name, p.avatar_url,
+           (SELECT COUNT(*) FROM likes l WHERE l.writing_id = w.id) as likes_count,
+           (SELECT COUNT(*) FROM likes l WHERE l.writing_id = w.id AND l.auth_id = ?) as liked
+    FROM writings w
+    JOIN follows f ON f.following_id = w.author_id
+    LEFT JOIN profiles p ON p.auth_id = w.author_id
+    WHERE f.follower_id = ? AND w.is_public = 1
+    ORDER BY w.published_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(authId, authId, limit, offset).all()
+
+  return c.json({ data: results, page, limit })
+})
+
 // GET /writings/:slug — writing individual público
 writings.get('/:slug', async (c) => {
   const slug = c.req.param('slug')

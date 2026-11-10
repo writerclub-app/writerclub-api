@@ -40,3 +40,14 @@ CREATE TABLE IF NOT EXISTS follows (
 
 CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
 CREATE INDEX IF NOT EXISTS idx_follows_follower  ON follows(follower_id);
+
+-- Likes (curtidas em writings públicos)
+CREATE TABLE IF NOT EXISTS likes (
+  auth_id    TEXT NOT NULL REFERENCES profiles(auth_id) ON DELETE CASCADE,
+  writing_id TEXT NOT NULL REFERENCES writings(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (auth_id, writing_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_likes_writing ON likes(writing_id);
+CREATE INDEX IF NOT EXISTS idx_likes_author  ON likes(auth_id);
