@@ -11,7 +11,7 @@ type Bindings = { DB: D1Database; JWT_SECRET: string }
 const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('*', cors({
-  origin: ['https://writerclub.app', 'http://localhost:5173'],
+  origin: ['https://writerclub.app', 'https://writerclub.pages.dev', 'http://localhost:5173'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
