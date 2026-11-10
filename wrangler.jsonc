@@ -1,0 +1,18 @@
+{
+	"name": "writerclub-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2024-11-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "writerclub",
+			"database_id": "45d63bdb-2f1a-464c-a7b8-16f3fe7ec084"
+		}
+	]
+}
