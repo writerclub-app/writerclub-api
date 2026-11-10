@@ -1,11 +1,9 @@
+/// <reference path="../worker-configuration.d.ts" />
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { writings } from './routes/writings'
 
-type Bindings = {
-  DB: D1Database
-  JWT_SECRET: string
-}
+type Bindings = { DB: D1Database; JWT_SECRET: string }
 
 const app = new Hono<{ Bindings: Bindings }>()
 
