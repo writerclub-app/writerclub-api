@@ -6,8 +6,9 @@ import { writings } from './routes/writings'
 import { auth } from './routes/auth'
 import { profiles } from './routes/profiles'
 import { follows } from './routes/follows'
+import { ai } from './routes/ai'
 
-type Bindings = { DB: D1Database; JWT_SECRET: string }
+type Bindings = { DB: D1Database; AI: Ai; JWT_SECRET: string }
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -24,5 +25,6 @@ app.route('/auth', auth)
 app.route('/profiles', profiles)
 app.route('/follows', follows)
 app.route('/likes', likes)
+app.route('/ai', ai)
 
 export default app

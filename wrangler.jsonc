@@ -14,5 +14,8 @@
 			"database_name": "writerclub",
 			"database_id": "45d63bdb-2f1a-464c-a7b8-16f3fe7ec084"
 		}
-	]
+	],
+	"ai": {
+		"binding": "AI"
+	}
 }
