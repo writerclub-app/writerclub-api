@@ -8,11 +8,13 @@ type Variables = { authId: string }
 export const ai = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 type AICommand = 'complete' | 'suggest-rhyme' | 'rewrite' | 'suggest-title' | 'suggest-slug'
-type AILanguage = 'pt' | 'en'
+type AILanguage = 'pt' | 'en' | 'es' | 'it'
 
 function languageInstruction(language?: AILanguage): string {
   if (language === 'pt') return 'Respond in Brazilian Portuguese (Português do Brasil).'
   if (language === 'en') return 'Respond in English.'
+  if (language === 'es') return 'Respond in Spanish (Español).'
+  if (language === 'it') return 'Respond in Italian (Italiano).'
   return 'Match the exact language(s) of the original text, including any intentional code-switching.'
 }
 
