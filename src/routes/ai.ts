@@ -86,7 +86,7 @@ ai.post('/', authMiddleware, async (c) => {
   const prompt = buildPrompt(command, context.slice(0, 4000), selection)
 
   const stream = await c.env.AI.run(
-    '@cf/zai-org/glm-4.7-flash' as BaseAiTextGenerationModels,
+    '@cf/meta/llama-3.2-3b-instruct' as BaseAiTextGenerationModels,
     {
       messages: [
         {
