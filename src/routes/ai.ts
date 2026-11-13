@@ -11,19 +11,21 @@ type AICommand = 'complete' | 'suggest-rhyme' | 'rewrite' | 'suggest-title' | 's
 type AILanguage = 'pt' | 'en' | 'es' | 'it'
 
 function languageInstruction(language?: AILanguage): string {
-  if (language === 'pt') return 'Respond in Brazilian Portuguese (Português do Brasil).'
-  if (language === 'en') return 'Respond in English.'
-  if (language === 'es') return 'Respond in Spanish (Español).'
-  if (language === 'it') return 'Respond in Italian (Italiano).'
+  if (language === 'pt') return 'IMPORTANT: You MUST respond ONLY in Brazilian Portuguese (Português do Brasil). Do not use any other language.'
+  if (language === 'en') return 'IMPORTANT: You MUST respond ONLY in English. Do not use any other language.'
+  if (language === 'es') return 'IMPORTANT: You MUST respond ONLY in Spanish (Español). Do not use any other language.'
+  if (language === 'it') return 'IMPORTANT: You MUST respond ONLY in Italian (Italiano). Do not use any other language.'
   return 'Match the exact language(s) of the original text, including any intentional code-switching.'
 }
 
 function buildPrompt(command: AICommand, context: string, selection?: string, language?: AILanguage): string {
   const lang = languageInstruction(language)
+  const langPrefix = language ? `[LANGUAGE: ${lang}]\n\n` : ''
 
   switch (command) {
     case 'complete':
       return [
+        langPrefix,
         'You are a creative writing assistant. Continue the following text naturally, ',
         'matching the author\'s style and tone. ',
         lang, ' ',
@@ -35,6 +37,7 @@ function buildPrompt(command: AICommand, context: string, selection?: string, la
 
     case 'rewrite':
       return [
+        langPrefix,
         'You are a creative writing assistant. Rewrite the following excerpt, ',
         'preserving the original meaning but improving clarity, flow, or style. ',
         lang, ' ',
