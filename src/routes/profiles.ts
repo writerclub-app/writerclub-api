@@ -160,17 +160,21 @@ profiles.get('/:username', async (c) => {
     ).bind(profile.auth_id, limit, offset).all(),
   ])
 
-  // isFollowing: resolve se houver token válido no header
+  // isFollowing + isOwnProfile: resolve se houver token válido no header
   let isFollowing = false
+  let isOwnProfile = false
   const authHeader = c.req.header('Authorization')
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const payload = await verifyToken(authHeader.slice(7), c.env.JWT_SECRET)
-      if (payload?.authId && payload.authId !== profile.auth_id) {
-        const row = await c.env.DB.prepare(
-          `SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?`
-        ).bind(payload.authId, profile.auth_id).first()
-        isFollowing = row !== null
+      if (payload?.authId) {
+        isOwnProfile = payload.authId === profile.auth_id
+        if (!isOwnProfile) {
+          const row = await c.env.DB.prepare(
+            `SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?`
+          ).bind(payload.authId, profile.auth_id).first()
+          isFollowing = row !== null
+        }
       }
     } catch { /* token inválido — ignora */ }
   }
@@ -185,6 +189,7 @@ profiles.get('/:username', async (c) => {
       followerCount: followersRow?.count ?? 0,
       followingCount: followingRow?.count ?? 0,
       isFollowing,
+      isOwnProfile,
     },
     writings: writingsResult.results,
     page,
