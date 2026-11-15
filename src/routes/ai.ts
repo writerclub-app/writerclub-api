@@ -189,5 +189,5 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
     }
   } catch { /* retorna [] em caso de parse error */ }
 
-  return c.json({ warnings })
+  return c.json({ warnings, _debug_raw: (result.response ?? '').trim().slice(0, 300) })
 })
