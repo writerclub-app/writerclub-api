@@ -199,7 +199,7 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
 
   try {
     const result = await c.env.AI.run(
-      '@cf/meta/llama-3.2-3b-instruct' as unknown as keyof AiModels,
+      '@cf/meta/llama-3.1-8b-instruct' as unknown as keyof AiModels,
       {
         messages: [{ role: 'user', content: userPrompt }],
         stream: false,
