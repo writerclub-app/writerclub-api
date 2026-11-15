@@ -26,7 +26,6 @@ writings.get('/', async (c) => {
   return c.json({ data: results, page, limit })
 })
 
-
 // GET /writings/feed — writings de quem o usuário segue (autenticado)
 writings.get('/feed', authMiddleware, async (c) => {
   const authId = c.get('authId')
@@ -50,6 +49,21 @@ writings.get('/feed', authMiddleware, async (c) => {
   return c.json({ data: results, page, limit })
 })
 
+// GET /writings/mine — todos os writings do usuário autenticado (backup/restore)
+writings.get('/mine', authMiddleware, async (c) => {
+  const authId = c.get('authId')
+
+  const { results } = await c.env.DB.prepare(`
+    SELECT local_id, title, slug, content, excerpt, category_name,
+           is_public, content_warnings, published_at, updated_at
+    FROM writings
+    WHERE author_id = ?
+    ORDER BY updated_at DESC
+  `).bind(authId).all()
+
+  return c.json({ data: results })
+})
+
 // GET /writings/:slug — writing individual público
 writings.get('/:slug', async (c) => {
   const slug = c.req.param('slug')
@@ -65,7 +79,7 @@ writings.get('/:slug', async (c) => {
   return c.json({ data: writing })
 })
 
-// POST /writings — publicar writing (autenticado)
+// POST /writings — upsert (autenticado) — funciona para privado e público
 writings.post('/', authMiddleware, async (c) => {
   const authId = c.get('authId')
   const body = await c.req.json<{
@@ -75,30 +89,37 @@ writings.post('/', authMiddleware, async (c) => {
     content: string
     excerpt?: string
     categoryName?: string
+    isPublic?: boolean
+    contentWarnings?: string[]
   }>()
 
-  const { localId, title, slug, content, excerpt, categoryName } = body
+  const { localId, title, slug, content, excerpt, categoryName, isPublic, contentWarnings } = body
 
   if (!localId || !title || !slug || !content) {
     return c.json({ error: 'Missing required fields' }, 400)
   }
 
+  const isPublicInt = isPublic ? 1 : 0
+  const warningsJson = JSON.stringify(contentWarnings ?? [])
+
   await c.env.DB.prepare(`
-    INSERT INTO writings (author_id, local_id, title, slug, content, excerpt, category_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO writings (author_id, local_id, title, slug, content, excerpt, category_name, is_public, content_warnings)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(author_id, local_id) DO UPDATE SET
       title = excluded.title,
       slug = excluded.slug,
       content = excluded.content,
       excerpt = excluded.excerpt,
       category_name = excluded.category_name,
+      is_public = excluded.is_public,
+      content_warnings = excluded.content_warnings,
       updated_at = datetime('now')
-  `).bind(authId, localId, title, slug, content, excerpt ?? null, categoryName ?? null).run()
+  `).bind(authId, localId, title, slug, content, excerpt ?? null, categoryName ?? null, isPublicInt, warningsJson).run()
 
   return c.json({ ok: true })
 })
 
-// DELETE /writings/:localId — despublicar (autenticado)
+// DELETE /writings/:localId — deletar writing (autenticado)
 writings.delete('/:localId', authMiddleware, async (c) => {
   const authId = c.get('authId')
   const localId = c.req.param('localId')

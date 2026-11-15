@@ -57,4 +57,4 @@ ALTER TABLE profiles ADD COLUMN password_hash TEXT;
 ALTER TABLE profiles ADD COLUMN email TEXT;
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email) WHERE email IS NOT NULL;
 
-ALTER TABLE texts ADD COLUMN content_warnings TEXT DEFAULT '[]';
+ALTER TABLE writings ADD COLUMN content_warnings TEXT DEFAULT '[]';
