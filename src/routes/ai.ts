@@ -145,34 +145,37 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
     'TEXT: ' + text.slice(0, 2000),
   ].join('\n')
 
-  const result = await c.env.AI.run(
-    '@cf/meta/llama-3.2-3b-instruct' as unknown as keyof AiModels,
-    {
-      messages: [{ role: 'user', content: userPrompt }],
-      stream: false,
-      max_tokens: 150,
-    }
-  ) as { response?: string }
-
-  const raw = (result.response ?? '').trim()
+  let raw = ''
   let warnings: string[] = []
 
-  // Tentativa 1: extrair array JSON do texto (greedy, suporta aspas simples)
   try {
-    const normalized = raw.replace(/'/g, '"')
-    const match = normalized.match(/\[[\s\S]*?\]/)
-    if (match) {
-      const parsed = JSON.parse(match[0]) as unknown[]
-      warnings = parsed.filter((t): t is string => VALID_TAGS.includes(t as string))
-    }
-  } catch { /* segue para fallback */ }
+    const result = await c.env.AI.run(
+      '@cf/meta/llama-3.2-3b-instruct' as unknown as keyof AiModels,
+      {
+        messages: [{ role: 'user', content: userPrompt }],
+        stream: false,
+        max_tokens: 150,
+      }
+    ) as { response?: string }
 
-  // Tentativa 2: fallback — varrer o texto e extrair qualquer tag válida mencionada
-  if (warnings.length === 0) {
-    warnings = VALID_TAGS.filter(tag => {
-      const pattern = new RegExp(`\\b${tag}\\b`, 'i')
-      return pattern.test(raw)
-    })
+    raw = (result.response ?? '').trim()
+
+    // Tentativa 1: extrair array JSON do texto (suporta aspas simples)
+    try {
+      const normalized = raw.replace(/'/g, '"')
+      const match = normalized.match(/\[[\s\S]*?\]/)
+      if (match) {
+        const parsed = JSON.parse(match[0]) as unknown[]
+        warnings = parsed.filter((t): t is string => VALID_TAGS.includes(t as string))
+      }
+    } catch { /* segue para fallback */ }
+
+    // Tentativa 2: fallback — extrai qualquer tag válida mencionada no texto
+    if (warnings.length === 0) {
+      warnings = VALID_TAGS.filter(tag => new RegExp(`\\b${tag}\\b`, 'i').test(raw))
+    }
+  } catch (err) {
+    return c.json({ warnings: [], _debug_raw: '', _error: String(err) }, 200)
   }
 
   return c.json({ warnings, _debug_raw: raw.slice(0, 300) })
