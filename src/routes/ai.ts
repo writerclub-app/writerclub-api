@@ -126,6 +126,23 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
 
   if (!text) return c.json({ error: 'text is required' }, 400)
 
+  // Pré-filtro de palavras-chave para tags sensíveis (determinístico, não depende do modelo)
+  const KEYWORD_RULES: Record<string, string[]> = {
+    erotic: ['bdsm', 'sexo explícito', 'pornô', 'pornografia', 'cena de nudez', 'nudez corporal', 'fetiche sexual', 'conteúdo adulto', 'explicit sex', 'sexual act', 'nude scene'],
+    violence: ['gore', 'sangue jorrando', 'decapitação', 'esquartejamento', 'tortura explícita'],
+    suicide: ['cometeu suicídio', 'se suicidou', 'tentou se matar', 'se enforc', 'tomou veneno para morrer', 'se jogou do', 'suicídio como ato'],
+    drugs: ['cheirou cocaína', 'usou heroína', 'fumou crack', 'injetou droga', 'overdose de'],
+    abuse: ['estuprou', 'abusou sexualmente', 'bateu até sangrar', 'abuso sexual de menor'],
+  }
+
+  const textLower = text.toLowerCase()
+  const keywordTags = new Set<string>()
+  for (const [tag, keywords] of Object.entries(KEYWORD_RULES)) {
+    if (keywords.some(kw => textLower.includes(kw))) {
+      keywordTags.add(tag)
+    }
+  }
+
   const VALID_TAGS = [
     'erotic', 'violence', 'suicide', 'drugs', 'trauma', 'abuse',
     'love', 'relationships', 'nature', 'religion', 'politics',
@@ -133,38 +150,45 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
   ]
 
   const userPrompt = [
-    'You are classifying creative writing (poems, songs, stories). Be CONSERVATIVE.',
-    'Only add a tag if the content is EXPLICIT and LITERAL — not metaphorical, not implied.',
+    'You are a content classifier for a creative writing platform (poems, songs, stories).',
+    'Your job: decide which tags apply so readers can choose what to read.',
     '',
-    'SENSITIVE TAGS — only add if the content is unambiguously explicit:',
-    '  suicide = text explicitly describes suicide attempts, suicidal ideation, or self-harm as a real act (NOT metaphors for pain, healing, or resilience)',
-    '  abuse = text explicitly describes physical, emotional or sexual abuse being inflicted',
-    '  violence = text explicitly depicts graphic physical violence or gore',
-    '  erotic = text explicitly describes sexual acts, nudity or bdsm',
-    '  drugs = text explicitly describes using illegal substances',
-    '  trauma = text depicts intense traumatic events (war, assault) in graphic detail',
+    'GUIDING PRINCIPLE for sensitive tags:',
+    'Ask yourself: "Would the average reader feel uncomfortable or disturbed by this passage?"',
+    'The test is NOT whether the content is literal or metaphorical.',
+    'A metaphor can still create an explicit, disturbing image. Example:',
+    '  BAD (triggers erotic): "felt as happy as having genitals on her face" — graphic image even as metaphor',
+    '  OK (no tag): "the nakedness of my feelings" — no disturbing image, just poetic language',
+    '  BAD (triggers suicide): "she took all the pills and waited to die" — explicit act even in fiction',
+    '  OK (no tag): "I cauterize my wounds with love" — metaphor for healing, no disturbing image',
     '',
-    'DESCRIPTIVE TAGS — add when the theme is clearly present:',
+    'SENSITIVE TAGS — apply if the image/act would disturb an average reader:',
+    '  erotic = sexual imagery, nudity, or bdsm that creates an explicit visual (literal OR metaphorical)',
+    '  violence = graphic physical violence, gore, or brutal acts',
+    '  suicide = suicidal acts, self-harm described in a way that feels real or instructional',
+    '  drugs = explicit drug use scenes',
+    '  trauma = graphic depiction of traumatic events (war, assault, disaster)',
+    '  abuse = physical, emotional or sexual abuse described in a disturbing way',
+    '',
+    'DESCRIPTIVE TAGS — apply when the theme is clearly present:',
     '  love = romantic love, passion, desire',
-    '  relationships = friendship, human connection',
-    '  nature = landscape, animals, environment',
-    '  religion = faith, ritual, prayer',
-    '  politics = power, social criticism',
+    '  relationships = friendship, bonds, human connection',
+    '  nature = landscape, animals, environment, seasons',
+    '  religion = faith, ritual, prayer, religious themes',
+    '  politics = power, social criticism, activism',
     '  humor = comedy, irony, satire',
-    '  family = parenting, ancestry',
-    '  loss = grief, mourning, death',
-    '  identity = self-discovery, belonging',
-    '  fantasy = magic, supernatural',
-    '  mystery = suspense, secrets',
-    '  social = inequality, society',
-    '  spirituality = mysticism, inner journey',
+    '  family = parenting, siblings, ancestry',
+    '  loss = grief, mourning, death, absence',
+    '  identity = self-discovery, belonging, gender, culture',
+    '  fantasy = magic, mythology, supernatural',
+    '  mystery = suspense, secrets, the unknown',
+    '  social = inequality, society, community',
+    '  spirituality = mysticism, inner journey, transcendence',
     '',
     'Rules:',
-    '- Use ONLY these exact English words as tags, never translate',
-    '- Metaphors about pain, healing, or struggle do NOT trigger sensitive tags',
-    '- When in doubt about a sensitive tag, leave it out',
-    '- Output ONLY a JSON array, no explanation',
-    'Example: ["love","spirituality"] or ["loss","nature"] or []',
+    '- Use ONLY these exact English tag words, never translate them',
+    '- Output ONLY a JSON array, no explanation, no preamble',
+    'Examples: ["erotic","love"] or ["loss","nature","spirituality"] or []',
     '',
     'TEXT:',
     text.slice(0, 2000),
@@ -211,5 +235,9 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
     return c.json({ warnings: [], _debug_raw: '', _error: String(err) }, 200)
   }
 
-  return c.json({ warnings, _debug_raw: raw.slice(0, 300) })
+  // Mescla tags do pré-filtro com as do AI (sem duplicatas)
+  const merged = Array.from(new Set([...keywordTags, ...warnings]))
+    .filter((t): t is string => VALID_TAGS.includes(t))
+
+  return c.json({ warnings: merged, _debug_raw: raw.slice(0, 300) })
 })
