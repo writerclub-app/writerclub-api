@@ -133,16 +133,41 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
   ]
 
   const userPrompt = [
-    'Task: classify the TEXT below and output ONLY a JSON array of tags. No explanation.',
-    'Tags: erotic (sex/bdsm/nudity), violence (gore), suicide (self-harm), drugs (substance use),',
-    'trauma (war/suffering), abuse (physical/emotional), love (romance/passion),',
-    'relationships (bonds), nature (landscape/animals), religion (faith),',
-    'politics (power/criticism), humor (comedy/satire), family (parenting/ancestry),',
-    'loss (grief/death), identity (self-discovery), fantasy (magic/supernatural),',
-    'mystery (suspense), social (inequality/society), spirituality (mysticism).',
-    'Output format: ["tag1","tag2"] or []',
+    'You are classifying creative writing (poems, songs, stories). Be CONSERVATIVE.',
+    'Only add a tag if the content is EXPLICIT and LITERAL — not metaphorical, not implied.',
     '',
-    'TEXT: ' + text.slice(0, 2000),
+    'SENSITIVE TAGS — only add if the content is unambiguously explicit:',
+    '  suicide = text explicitly describes suicide attempts, suicidal ideation, or self-harm as a real act (NOT metaphors for pain, healing, or resilience)',
+    '  abuse = text explicitly describes physical, emotional or sexual abuse being inflicted',
+    '  violence = text explicitly depicts graphic physical violence or gore',
+    '  erotic = text explicitly describes sexual acts, nudity or bdsm',
+    '  drugs = text explicitly describes using illegal substances',
+    '  trauma = text depicts intense traumatic events (war, assault) in graphic detail',
+    '',
+    'DESCRIPTIVE TAGS — add when the theme is clearly present:',
+    '  love = romantic love, passion, desire',
+    '  relationships = friendship, human connection',
+    '  nature = landscape, animals, environment',
+    '  religion = faith, ritual, prayer',
+    '  politics = power, social criticism',
+    '  humor = comedy, irony, satire',
+    '  family = parenting, ancestry',
+    '  loss = grief, mourning, death',
+    '  identity = self-discovery, belonging',
+    '  fantasy = magic, supernatural',
+    '  mystery = suspense, secrets',
+    '  social = inequality, society',
+    '  spirituality = mysticism, inner journey',
+    '',
+    'Rules:',
+    '- Use ONLY these exact English words as tags, never translate',
+    '- Metaphors about pain, healing, or struggle do NOT trigger sensitive tags',
+    '- When in doubt about a sensitive tag, leave it out',
+    '- Output ONLY a JSON array, no explanation',
+    'Example: ["love","spirituality"] or ["loss","nature"] or []',
+    '',
+    'TEXT:',
+    text.slice(0, 2000),
   ].join('\n')
 
   let raw = ''
@@ -158,8 +183,15 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
       }
     ) as { response?: string }
 
-    const resp = (result as Record<string, unknown>)
-    raw = typeof resp.response === 'string' ? resp.response.trim() : JSON.stringify(resp)
+    // Suporta dois formatos: { response } (Workers AI simples) e chat completion { choices }
+    const resp = result as Record<string, unknown>
+    if (typeof resp.response === 'string') {
+      raw = resp.response.trim()
+    } else {
+      type Choice = { message?: { content?: string } }
+      const choices = resp.choices as Choice[] | undefined
+      raw = choices?.[0]?.message?.content?.trim() ?? JSON.stringify(resp)
+    }
 
     // Tentativa 1: extrair array JSON do texto (suporta aspas simples)
     try {
