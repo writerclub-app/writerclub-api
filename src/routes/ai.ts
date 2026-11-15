@@ -102,7 +102,7 @@ ai.post('/', authMiddleware, async (c) => {
   const prompt = buildPrompt(command, context.slice(0, 4000), selection, language)
 
   const stream = await c.env.AI.run(
-    '@cf/meta/llama-3.2-3b-instruct' as BaseAiTextGenerationModels,
+    '@cf/meta/llama-3.2-3b-instruct' as unknown as keyof AiModels,
     {
       messages: [{ role: 'user', content: prompt }],
       stream: true,
@@ -110,11 +110,61 @@ ai.post('/', authMiddleware, async (c) => {
     }
   )
 
-  return new Response(stream as ReadableStream, {
+  return new Response(stream as unknown as ReadableStream, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
     },
   })
+})
+
+// POST /ai/classify-warnings — classifica avisos de conteúdo (não streaming)
+ai.post('/classify-warnings', authMiddleware, async (c) => {
+  const body = await c.req.json<{ text: string }>()
+  const { text } = body
+
+  if (!text) return c.json({ error: 'text is required' }, 400)
+
+  const VALID_TAGS = ['erotic', 'violence', 'suicide', 'drugs', 'trauma', 'abuse']
+
+  const prompt = [
+    'You are a content moderation assistant for a creative writing platform.',
+    'Analyze the following text and return ONLY a JSON array of applicable content warning tags.',
+    'Valid tags: erotic, violence, suicide, drugs, trauma, abuse.',
+    'Return an empty array [] if none apply.',
+    'Rules:',
+    '- erotic: explicit sexual content',
+    '- violence: graphic violence or gore',
+    '- suicide: suicide, self-harm, eating disorders as lived experience',
+    '- drugs: explicit drug or substance use',
+    '- trauma: abuse, war, intense loss described in detail',
+    '- abuse: physical, emotional or sexual abuse',
+    'Return ONLY valid JSON like ["violence"] or []. No explanation, no markdown, no prose.',
+    '',
+    'Text to analyze:',
+    text.slice(0, 3000),
+  ].join('\n')
+
+  const result = await c.env.AI.run(
+    '@cf/meta/llama-3.2-3b-instruct' as unknown as keyof AiModels,
+    {
+      messages: [{ role: 'user', content: prompt }],
+      stream: false,
+      max_tokens: 64,
+    }
+  ) as { response?: string }
+
+  let warnings: string[] = []
+  try {
+    const raw = (result.response ?? '').trim()
+    // Extrai o array JSON da resposta mesmo que venha com texto extra
+    const match = raw.match(/\[.*?\]/s)
+    if (match) {
+      const parsed = JSON.parse(match[0]) as unknown[]
+      warnings = parsed.filter((t): t is string => VALID_TAGS.includes(t as string))
+    }
+  } catch { /* retorna [] em caso de parse error */ }
+
+  return c.json({ warnings })
 })
