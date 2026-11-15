@@ -158,7 +158,8 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
       }
     ) as { response?: string }
 
-    raw = (result.response ?? '').trim()
+    const resp = (result as Record<string, unknown>)
+    raw = typeof resp.response === 'string' ? resp.response.trim() : JSON.stringify(resp)
 
     // Tentativa 1: extrair array JSON do texto (suporta aspas simples)
     try {
