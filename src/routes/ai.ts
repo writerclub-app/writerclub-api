@@ -178,16 +178,26 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
     }
   ) as { response?: string }
 
+  const raw = (result.response ?? '').trim()
   let warnings: string[] = []
+
+  // Tentativa 1: extrair array JSON do texto (greedy, suporta aspas simples)
   try {
-    const raw = (result.response ?? '').trim()
-    // Extrai o array JSON — suporta arrays multiline e respostas com texto extra
-    const match = raw.match(/\[[\s\S]*?\]/)
+    const normalized = raw.replace(/'/g, '"')
+    const match = normalized.match(/\[[\s\S]*?\]/)
     if (match) {
       const parsed = JSON.parse(match[0]) as unknown[]
       warnings = parsed.filter((t): t is string => VALID_TAGS.includes(t as string))
     }
-  } catch { /* retorna [] em caso de parse error */ }
+  } catch { /* segue para fallback */ }
 
-  return c.json({ warnings, _debug_raw: (result.response ?? '').trim().slice(0, 300) })
+  // Tentativa 2: fallback — varrer o texto e extrair qualquer tag válida mencionada
+  if (warnings.length === 0) {
+    warnings = VALID_TAGS.filter(tag => {
+      const pattern = new RegExp(`\\b${tag}\\b`, 'i')
+      return pattern.test(raw)
+    })
+  }
+
+  return c.json({ warnings, _debug_raw: raw.slice(0, 300) })
 })
