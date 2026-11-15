@@ -51,3 +51,8 @@ CREATE TABLE IF NOT EXISTS likes (
 
 CREATE INDEX IF NOT EXISTS idx_likes_writing ON likes(writing_id);
 CREATE INDEX IF NOT EXISTS idx_likes_author  ON likes(auth_id);
+
+-- Suporte a login com email/senha (password_hash nullable — OAuth users ficam null)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT;
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email) WHERE email IS NOT NULL;
