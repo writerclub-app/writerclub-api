@@ -132,50 +132,57 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
     'humor', 'family', 'loss', 'identity', 'fantasy', 'mystery', 'social', 'spirituality',
   ]
 
-  const prompt = [
-    'You are a content classifier for a creative writing platform.',
-    'Analyze the text and return ONLY a JSON array of applicable tags.',
-    'Valid tags: erotic, violence, suicide, drugs, trauma, abuse, love, relationships, nature, religion, politics, humor, family, loss, identity, fantasy, mystery, social, spirituality.',
-    'Tag definitions:',
-    '- erotic: explicit sexual content',
-    '- violence: graphic violence or gore',
-    '- suicide: suicide, self-harm or eating disorders as lived experience',
-    '- drugs: explicit drug or substance use',
-    '- trauma: intense loss, war, abuse described in detail',
-    '- abuse: physical, emotional or sexual abuse',
-    '- love: romantic love, passion, desire',
-    '- relationships: friendship, family bonds, human connection',
-    '- nature: landscapes, animals, environment, seasons',
-    '- religion: faith, spirituality, religious themes',
-    '- politics: political commentary, social criticism, power',
-    '- humor: comedy, irony, satire',
-    '- family: parenting, siblings, ancestry',
-    '- loss: grief, death, absence, mourning',
-    '- identity: self-discovery, belonging, gender, race, culture',
-    '- fantasy: magic, mythology, supernatural, worldbuilding',
-    '- mystery: suspense, secrets, the unknown',
-    '- social: community, inequality, society, class',
-    '- spirituality: spiritual experiences, mysticism, inner journey, transcendence',
-    'Pick only tags that clearly apply. Return ONLY valid JSON like ["love","loss"] or []. No explanation.',
+  const systemPrompt = [
+    'You are a JSON-only content classifier.',
+    'You MUST respond with a single JSON array and nothing else.',
+    'No explanation. No preamble. No markdown. Just the JSON array.',
+  ].join(' ')
+
+  const userPrompt = [
+    'Classify this creative writing text. Return ONLY a JSON array of applicable tags.',
+    'Valid tags and meanings:',
+    '  erotic = explicit sexual content (sex, bdsm, nudity)',
+    '  violence = graphic violence or gore',
+    '  suicide = suicide or self-harm as lived experience',
+    '  drugs = explicit drug or substance use',
+    '  trauma = intense suffering, war, abuse described in detail',
+    '  abuse = physical, emotional or sexual abuse',
+    '  love = romantic love, passion, desire',
+    '  relationships = friendship, family bonds, human connection',
+    '  nature = landscape, animals, environment, seasons',
+    '  religion = faith, ritual, religious themes',
+    '  politics = power, social criticism, activism',
+    '  humor = comedy, irony, satire',
+    '  family = parenting, siblings, ancestry',
+    '  loss = grief, death, absence, mourning',
+    '  identity = self-discovery, belonging, gender, culture',
+    '  fantasy = magic, mythology, supernatural, worldbuilding',
+    '  mystery = suspense, secrets, the unknown',
+    '  social = inequality, community, society, class',
+    '  spirituality = mysticism, inner journey, transcendence',
+    'Pick only tags that clearly apply. Example output: ["erotic","love"] or ["loss"] or [].',
     '',
-    'Text:',
-    text.slice(0, 3000),
+    'TEXT:',
+    text.slice(0, 2000),
   ].join('\n')
 
   const result = await c.env.AI.run(
     '@cf/meta/llama-3.2-3b-instruct' as unknown as keyof AiModels,
     {
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
       stream: false,
-      max_tokens: 64,
+      max_tokens: 150,
     }
   ) as { response?: string }
 
   let warnings: string[] = []
   try {
     const raw = (result.response ?? '').trim()
-    // Extrai o array JSON da resposta mesmo que venha com texto extra
-    const match = raw.match(/\[.*?\]/s)
+    // Extrai o array JSON — suporta arrays multiline e respostas com texto extra
+    const match = raw.match(/\[[\s\S]*?\]/)
     if (match) {
       const parsed = JSON.parse(match[0]) as unknown[]
       warnings = parsed.filter((t): t is string => VALID_TAGS.includes(t as string))
