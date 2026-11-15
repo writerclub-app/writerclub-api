@@ -126,23 +126,39 @@ ai.post('/classify-warnings', authMiddleware, async (c) => {
 
   if (!text) return c.json({ error: 'text is required' }, 400)
 
-  const VALID_TAGS = ['erotic', 'violence', 'suicide', 'drugs', 'trauma', 'abuse']
+  const VALID_TAGS = [
+    'erotic', 'violence', 'suicide', 'drugs', 'trauma', 'abuse',
+    'love', 'relationships', 'nature', 'religion', 'politics',
+    'humor', 'family', 'loss', 'identity', 'fantasy', 'mystery', 'social', 'spirituality',
+  ]
 
   const prompt = [
-    'You are a content moderation assistant for a creative writing platform.',
-    'Analyze the following text and return ONLY a JSON array of applicable content warning tags.',
-    'Valid tags: erotic, violence, suicide, drugs, trauma, abuse.',
-    'Return an empty array [] if none apply.',
-    'Rules:',
+    'You are a content classifier for a creative writing platform.',
+    'Analyze the text and return ONLY a JSON array of applicable tags.',
+    'Valid tags: erotic, violence, suicide, drugs, trauma, abuse, love, relationships, nature, religion, politics, humor, family, loss, identity, fantasy, mystery, social, spirituality.',
+    'Tag definitions:',
     '- erotic: explicit sexual content',
     '- violence: graphic violence or gore',
-    '- suicide: suicide, self-harm, eating disorders as lived experience',
+    '- suicide: suicide, self-harm or eating disorders as lived experience',
     '- drugs: explicit drug or substance use',
-    '- trauma: abuse, war, intense loss described in detail',
+    '- trauma: intense loss, war, abuse described in detail',
     '- abuse: physical, emotional or sexual abuse',
-    'Return ONLY valid JSON like ["violence"] or []. No explanation, no markdown, no prose.',
+    '- love: romantic love, passion, desire',
+    '- relationships: friendship, family bonds, human connection',
+    '- nature: landscapes, animals, environment, seasons',
+    '- religion: faith, spirituality, religious themes',
+    '- politics: political commentary, social criticism, power',
+    '- humor: comedy, irony, satire',
+    '- family: parenting, siblings, ancestry',
+    '- loss: grief, death, absence, mourning',
+    '- identity: self-discovery, belonging, gender, race, culture',
+    '- fantasy: magic, mythology, supernatural, worldbuilding',
+    '- mystery: suspense, secrets, the unknown',
+    '- social: community, inequality, society, class',
+    '- spirituality: spiritual experiences, mysticism, inner journey, transcendence',
+    'Pick only tags that clearly apply. Return ONLY valid JSON like ["love","loss"] or []. No explanation.',
     '',
-    'Text to analyze:',
+    'Text:',
     text.slice(0, 3000),
   ].join('\n')
 
